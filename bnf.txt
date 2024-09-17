@@ -1,0 +1,57 @@
+chosen domain - "VHS rental store"
+
+upper = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M' | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+
+lower = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+ 
+letter = upper | lower
+
+digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+
+number = digit+
+
+alphanumeric = letter | digit
+
+char = alphanumeric | ' ' | '.' | ',' | '-' | '_'
+
+string = character | character string
+
+title = string
+
+rental_store = "VHS Rental Store" ':' (catalog | customer_database | rental_transactions)
+
+catalog = "Catalog" ':' movie_list
+
+movie_list = movie | (movie ',' movie_list)
+
+movie = title ',' year ',' genre ',' rating ',' availability
+
+year = digit digit digit digit
+genre = "Action" | "Comedy" | "Drama" | "Horror" | "Romance" | "Sci-Fi" | "Documentary" | "Family"
+rating = "G" | "PG" | "PG-13" | "R" | "NR"
+availability = "Available" | "Rented"
+
+customer_database = "Customer Database" ':' customer_list
+
+customer_list = customer | (customer ',' customer_list)
+
+customer = name ',' customer_id ',' phone_number ',' email ',' rental_history
+
+name = string
+customer_id = digit | digit customer_id
+phone_number = '+'? digit+
+email = string '@' string '.' string
+rental_history = rental_record | "None"
+
+rental_transactions = "Rental Transactions" ':' rental_list
+
+rental_list = rental_record | (rental_record ',' rental_list)
+
+rental_record = customer_id ',' movie_title ',' rental_date ',' due_date ',' status
+
+movie_title = string
+rental_date = date
+due_date = date
+status = "Returned" | "Not Returned"
+
+date = digit digit digit digit '-' digit digit '-' digit digit
