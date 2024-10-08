@@ -22,7 +22,7 @@ data Query = Init RentalStore | TakeMovie Movie | RemoveMovie Movie | AddMovie M
 
 -- | The instances are needed basically for tests
 instance Eq Query where
-  (==) _ _ = False
+  (==) q1 q2 = show q1 == show q2
 
 instance Show Query where
   show (Init rs) = "init " ++ show rs
@@ -36,7 +36,7 @@ instance Show Query where
 parseQuery :: String -> Either String Query
 parseQuery s =
   case orX [parseShow, parseInit, parseAddMovie, parseRemoveMovie, parseTakeMovie] s of
-    Left e -> Left e
+    Left _ -> Left ("All query parsers did not recognize: " ++ s)
     Right (q, r) ->
       if null r then Right q else Left ("Unrecognized characters: " ++ r)
 
@@ -44,7 +44,7 @@ parseQuery s =
 -- Currently it has no constructors but you can introduce
 -- as many as needed.
 data State = Uninitialized | Store RentalStore
-  deriving (Show)
+  deriving (Show, Eq)
 
 data List a = Empty | Item a | Items a (List a)
 

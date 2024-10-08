@@ -10,6 +10,7 @@ import PrimitiveParsers
 -- types
 -- rental_store = "VHS Rental Store" ':' (catalog | customer_database | rental_transactions)
 data RentalStore = VHSRentalStore Catalog
+  deriving (Eq)
 
 parseRentalStore :: Parser RentalStore
 parseRentalStore s =
@@ -22,6 +23,7 @@ instance Show RentalStore where
 
 -- catalog = "Catalog" ':' movie_list
 newtype Catalog = Catalog MovieList
+  deriving (Eq)
 
 parseCatalog :: Parser Catalog
 parseCatalog s =
@@ -109,7 +111,7 @@ data Rating = G | PG | PG13 | R | NR
 
 parseRating :: Parser Rating
 parseRating s =
-  let allRatings = map (parseString . show) [G, PG, PG13, R, NR]
+  let allRatings = map (parseString . show) [G, PG13, PG, R, NR]
    in case orX allRatings s of
         Left e1 -> Left ("Could not parse Rating: " ++ e1)
         Right (v1, r1) -> Right (read v1, r1)
