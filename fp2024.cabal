@@ -30,6 +30,9 @@ library
       Lessons.Lesson03
       Lib1
       Lib2
+      Parsers
+      ParsingHelpers
+      PrimitiveParsers
   other-modules:
       Paths_fp2024
   autogen-modules:
