@@ -1,0 +1,23 @@
+Welcome! Press [TAB] for auto completion.
+>>> addMovie Pavadinimas,1999,Action,PG,Available
+ERROR:State has to be initialized to add a movie
+>>> init VHS Rental Store:Catalog:Pavadinimas,1999,Action,PG,Available
+Successfully initialized
+>>> show
+Store VHS Rental Store:Catalog:"Pavadinimas",1999,Action,PG,Available
+>>> takeMovie Pavadinimas,1999,Action,PG,Available
+Successfully updated
+>>> show
+Store VHS Rental Store:Catalog:"Pavadinimas",1999,Action,PG,Rented
+>>> addMovies Rambo,1984,Action,R,Available,Filmas,2024,Family,G,Available
+Success
+>>> show
+Store VHS Rental Store:Catalog:"Filmas",2024,Family,G,Available,"Rambo",1984,Action,R,Available,"Pavadinimas",1999,Action,PG,Rented
+>>> removeMovie Rambo,1984,Action,R,Available
+Successfully removed
+>>> show
+Store VHS Rental Store:Catalog:"Filmas",2024,Family,G,Available,"Pavadinimas",1999,Action,PG,Rented
+>>> addMovie Pavadinimas,1977,NeegzistuojantisZanras,G,Available
+PARSE ERROR:All query parsers did not recognize: addMovie Pavadinimas,1977,NeegzistuojantisZanras,G,Available
+>>> addMovie Pavadinimas,1977,Documentary,G,Availablepapildomisimboliai
+PARSE ERROR:Unrecognized characters: papildomisimboliai
