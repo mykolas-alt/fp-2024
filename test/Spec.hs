@@ -21,6 +21,14 @@ unitTests =
       testCase "Bad query" $
         let q = "addMovie FunkcinisProgramavimas,2024,NeegzistuojantisZanras,PG13,Available"
          in Lib2.parseQuery q @?= Left ("All query parsers did not recognize: " ++ q),
+      testCase "Successfully parsing addMovies" $
+        let m1str = "FunkcinisProgramavimas,2024,Horror,PG13,Available"
+            m2str = "Rambo,1982,Action,PG,Available"
+            qstr = m1str ++ "," ++ m2str
+            m1 = P.Movie "FunkcinisProgramavimas" 2024 P.Horror P.PG13 P.Available
+            m2 = P.Movie "Rambo" 1982 P.Action P.PG P.Available
+            ml = P.List m1 (P.Single m2)
+         in Lib2.parseQuery ("addMovies " ++ qstr) @?= Right (Lib2.AddMovies ml),
       testCase "Successfully parsing addMovie" $
         Lib2.parseQuery "addMovie FunkcinisProgramavimas,2024,Horror,PG13,Available"
           @?= Right (Lib2.AddMovie (P.Movie "FunkcinisProgramavimas" 2024 P.Horror P.PG13 P.Available)),

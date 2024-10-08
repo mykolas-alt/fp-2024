@@ -79,7 +79,7 @@ parseMovieList s =
         concatMovies (x : xs) = List x (concatMovies xs)
         concatMovies _ = error "Empty array"
 
--- BNF: title = string
+-- BNF: title = alphanumeric+
 type Title = String
 
 parseTitle :: Parser Title

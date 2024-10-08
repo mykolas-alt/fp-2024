@@ -35,13 +35,16 @@ many1 :: Parser a -> Parser [a]
 many1 p s =
   case p s of
     Left e1 -> Left e1
-    Right (v1, r1) -> Right (str, drop (length str) s)
+    Right (v1, r1) -> Right (str, snd res')
       where
-        str = v1 : many1' r1
+        str = v1 : fst res'
+        res' = many1' r1
         many1' s2 =
           case p s2 of
-            Left _ -> []
-            Right (v2, r2) -> v2 : many1' r2
+            Left _ -> ([], s2)
+            Right (v2, r2) -> (v2 : fst res, snd res)
+              where
+                res = many1' r2
 
 parseN :: Int -> Parser a -> Parser [a]
 parseN 0 _ s = Right ([], s)

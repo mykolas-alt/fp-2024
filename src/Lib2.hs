@@ -17,8 +17,8 @@ import PrimitiveParsers
 -- It should match the grammar from Laboratory work #1.
 -- Currently it has no constructors but you can introduce
 -- as many as needed.
--- BNF: root = "init " rental_store | "takeMovie " movie | "removeMovie " movie | "addMovie " movie | "show"
-data Query = Init RentalStore | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show
+-- BNF: root = "init " rental_store | "addMovies" movie_list | "addMovie " movie | "takeMovie " movie | "removeMovie " movie | "show"
+data Query = Init RentalStore | AddMovies MovieList | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show
 
 -- | The instances are needed basically for tests
 instance Eq Query where
@@ -30,12 +30,13 @@ instance Show Query where
   show (TakeMovie m) = "takeMovie " ++ show m
   show (RemoveMovie m) = "removeMovie " ++ show m
   show (AddMovie m) = "addMovie " ++ show m
+  show (AddMovies ml) = "addMovie " ++ show ml
 
 -- | Parses user's input.
 -- The function must have tests.
 parseQuery :: String -> Either String Query
 parseQuery s =
-  case orX [parseShow, parseInit, parseAddMovie, parseRemoveMovie, parseTakeMovie] s of
+  case orX [parseShow, parseInit, parseAddMovie, parseAddMovies, parseRemoveMovie, parseTakeMovie] s of
     Left _ -> Left ("All query parsers did not recognize: " ++ s)
     Right (q, r) ->
       if null r then Right q else Left ("Unrecognized characters: " ++ r)
@@ -69,6 +70,7 @@ stateTransition s Show = Right (Just (show s), s)
 stateTransition Uninitialized (Init rs) = Right (Just "Successfully initialized", Store rs)
 stateTransition _ (Init _) = Left "State is already initialized"
 stateTransition s (AddMovie m) = addMovie s m
+stateTransition s (AddMovies ml) = addMovies s ml
 stateTransition s (RemoveMovie m) = removeMovie s m
 stateTransition s (TakeMovie m) = takeMovie s m
 
@@ -94,6 +96,13 @@ addMovie Uninitialized _ = Left "State has to be initialized to add a movie"
 addMovie (Store (VHSRentalStore (Catalog ml))) m = Right (Just "Success", ns)
   where
     ns = Store (VHSRentalStore (Catalog (List m ml)))
+
+addMovies :: State -> MovieList -> Either String (Maybe String, State)
+addMovies s (Single m) = addMovie s m
+addMovies s (List m ml) =
+  case addMovie s m of
+    Left e -> Left e
+    Right (_, ns) -> addMovies ns ml
 
 removeMovie :: State -> Movie -> Either String (Maybe String, State)
 removeMovie Uninitialized _ = Left "State has to be initialized to remove a movie"
@@ -133,6 +142,12 @@ parseAddMovie s =
   case and2 (parseString "addMovie ") parseMovie s of
     Left e -> Left e
     Right ((_, m), r) -> Right (AddMovie m, r)
+
+parseAddMovies :: Parser Query
+parseAddMovies s =
+  case and2 (parseString "addMovies ") parseMovieList s of
+    Left e -> Left e
+    Right ((_, ml), r) -> Right (AddMovies ml, r)
 
 parseTakeMovie :: Parser Query
 parseTakeMovie s =
