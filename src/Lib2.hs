@@ -17,8 +17,8 @@ import PrimitiveParsers
 -- It should match the grammar from Laboratory work #1.
 -- Currently it has no constructors but you can introduce
 -- as many as needed.
--- BNF: root = "init " rental_store | "takeMovie " movie | "removeMovie " movie | "addMovie " | "show"
-data Query = Init RentalStore | Show
+-- BNF: root = "init " rental_store | "takeMovie " movie | "removeMovie " movie | "addMovie " movie | "show"
+data Query = Init RentalStore | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show
 
 -- | The instances are needed basically for tests
 instance Eq Query where
@@ -27,12 +27,15 @@ instance Eq Query where
 instance Show Query where
   show (Init rs) = "init " ++ show rs
   show Show = "show"
+  show (TakeMovie m) = "takeMovie " ++ show m
+  show (RemoveMovie m) = "removeMovie " ++ show m
+  show (AddMovie m) = "addMovie " ++ show m
 
 -- | Parses user's input.
 -- The function must have tests.
 parseQuery :: String -> Either String Query
 parseQuery s =
-  case orX [parseShow, parseInit] s of
+  case orX [parseShow, parseInit, parseAddMovie, parseRemoveMovie, parseTakeMovie] s of
     Left e -> Left e
     Right (q, r) ->
       if null r then Right q else Left ("Unrecognized characters: " ++ r)
@@ -65,6 +68,53 @@ stateTransition :: State -> Query -> Either String (Maybe String, State)
 stateTransition s Show = Right (Just (show s), s)
 stateTransition Uninitialized (Init rs) = Right (Just "Successfully initialized", Store rs)
 stateTransition _ (Init _) = Left "State is already initialized"
+stateTransition s (AddMovie m) = addMovie s m
+stateTransition s (RemoveMovie m) = removeMovie s m
+stateTransition s (TakeMovie m) = takeMovie s m
+
+takeMovie :: State -> Movie -> Either String (Maybe String, State)
+takeMovie Uninitialized _ = Left "State has to be initialized to take a movie"
+takeMovie (Store (VHSRentalStore (Catalog ml))) m =
+  case takeFromList m ml of
+    Left err -> Left err
+    Right (msg, nml) -> Right (msg, Store (VHSRentalStore (Catalog nml)))
+  where
+    markTaken (Movie x1 x2 x3 x4 _) = Movie x1 x2 x3 x4 Rented
+    takeFromList toTk (Single m1)
+      | toTk == m1 = Right (Just "Successfully updated", Single (markTaken m1))
+      | otherwise = Left ("Could not find movie: " ++ show m1)
+    takeFromList toTk (List m1 ml1)
+      | toTk == m1 = Right (Just "Successfully updated", List (markTaken m1) ml1)
+      | otherwise = case takeFromList toTk ml1 of
+          Left e -> Left e
+          Right (msg, ml2) -> Right (msg, List m1 ml2)
+
+addMovie :: State -> Movie -> Either String (Maybe String, State)
+addMovie Uninitialized _ = Left "State has to be initialized to add a movie"
+addMovie (Store (VHSRentalStore (Catalog ml))) m = Right (Just "Success", ns)
+  where
+    ns = Store (VHSRentalStore (Catalog (List m ml)))
+
+removeMovie :: State -> Movie -> Either String (Maybe String, State)
+removeMovie Uninitialized _ = Left "State has to be initialized to remove a movie"
+removeMovie (Store (VHSRentalStore (Catalog ml))) m =
+  case removeFromList m ml of
+    Left e -> Left e
+    Right nml ->
+      if nml == ml
+        then Left ("Movie " ++ show m ++ " was not found in the catalog")
+        else Right (Just "Successfully removed", Store (VHSRentalStore (Catalog nml)))
+
+-- Negaliu palikti tuscio pagal gramatika
+removeFromList :: Movie -> MovieList -> Either String MovieList
+removeFromList toRm s@(Single m)
+  | m == toRm = Left "Can't leave list empty"
+  | otherwise = Right s
+removeFromList toRm (List m ml)
+  | m == toRm = Right ml
+  | otherwise = case removeFromList toRm ml of
+      Left _ -> Right (Single m)
+      Right ml2 -> Right (List m ml2)
 
 parseShow :: Parser Query
 parseShow s =
@@ -77,3 +127,21 @@ parseInit s =
   case and2 (parseString "init ") parseRentalStore s of
     Left e -> Left e
     Right ((_, rs), r) -> Right (Init rs, r)
+
+parseAddMovie :: Parser Query
+parseAddMovie s =
+  case and2 (parseString "addMovie ") parseMovie s of
+    Left e -> Left e
+    Right ((_, m), r) -> Right (AddMovie m, r)
+
+parseTakeMovie :: Parser Query
+parseTakeMovie s =
+  case and2 (parseString "takeMovie ") parseMovie s of
+    Left e -> Left e
+    Right ((_, m), r) -> Right (TakeMovie m, r)
+
+parseRemoveMovie :: Parser Query
+parseRemoveMovie s =
+  case and2 (parseString "removeMovie ") parseMovie s of
+    Left e -> Left e
+    Right ((_, m), r) -> Right (RemoveMovie m, r)

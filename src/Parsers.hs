@@ -34,6 +34,7 @@ instance Show Catalog where
 
 -- movie = title ',' year ',' genre ',' rating ',' availability
 data Movie = Movie Title Year Genre Rating Availability
+  deriving (Eq)
 
 -- >>> parseMovie "Pavadinimas,1990,Action,PG,Available"
 -- Right ("Pavadinimas",1990,Action,PG,Available,"")
@@ -58,6 +59,7 @@ instance Show Movie where
 
 -- movie_list = movie | (movie ',' movie_list)
 data MovieList = Single Movie | List Movie MovieList
+  deriving (Eq)
 
 instance Show MovieList where
   show (Single m) = show m
@@ -92,7 +94,7 @@ parseYear s =
 
 -- BNF: availability = "Available" | "Rented"
 data Availability = Available | Rented
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 parseAvailability :: Parser Availability
 parseAvailability s =
@@ -103,7 +105,7 @@ parseAvailability s =
 
 -- BNF: rating = "G" | "PG" | "PG-13" | "R" | "NR"
 data Rating = G | PG | PG13 | R | NR
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 parseRating :: Parser Rating
 parseRating s =
@@ -114,7 +116,7 @@ parseRating s =
 
 -- BNF: genre = "Action" | "Comedy" | "Drama" | "Horror" | "Romance" | "Sci-Fi" | "Documentary" | "Family"
 data Genre = Action | Comedy | Drama | Horror | Romance | SciFi | Documentary | Family
-  deriving (Show, Read)
+  deriving (Show, Read, Eq)
 
 parseGenre :: Parser Genre
 parseGenre s =
