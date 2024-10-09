@@ -132,31 +132,16 @@ parseShow s =
     Right (_, r) -> Right (Show, r)
 
 parseInit :: Parser Query
-parseInit s =
-  case and2 (parseString "init ") parseRentalStore s of
-    Left e -> Left e
-    Right ((_, rs), r) -> Right (Init rs, r)
+parseInit = and2 (\_ y -> Init y) (parseString "init ") parseRentalStore
 
 parseAddMovie :: Parser Query
-parseAddMovie s =
-  case and2 (parseString "addMovie ") parseMovie s of
-    Left e -> Left e
-    Right ((_, m), r) -> Right (AddMovie m, r)
+parseAddMovie = and2 (\_ y -> AddMovie y) (parseString "addMovie ") parseMovie
 
 parseAddMovies :: Parser Query
-parseAddMovies s =
-  case and2 (parseString "addMovies ") parseMovieList s of
-    Left e -> Left e
-    Right ((_, ml), r) -> Right (AddMovies ml, r)
+parseAddMovies = and2 (\_ y -> AddMovies y) (parseString "addMovies ") parseMovieList
 
 parseTakeMovie :: Parser Query
-parseTakeMovie s =
-  case and2 (parseString "takeMovie ") parseMovie s of
-    Left e -> Left e
-    Right ((_, m), r) -> Right (TakeMovie m, r)
+parseTakeMovie = and2 (\_ y -> TakeMovie y) (parseString "takeMovie ") parseMovie
 
 parseRemoveMovie :: Parser Query
-parseRemoveMovie s =
-  case and2 (parseString "removeMovie ") parseMovie s of
-    Left e -> Left e
-    Right ((_, m), r) -> Right (RemoveMovie m, r)
+parseRemoveMovie = and2 (\_ y -> RemoveMovie y) (parseString "removeMovie ") parseMovie
