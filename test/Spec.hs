@@ -20,7 +20,7 @@ unitTests =
         null Lib1.completions @?= False,
       testCase "Bad query" $
         let q = "addMovie FunkcinisProgramavimas,2024,NeegzistuojantisZanras,PG13,Available"
-         in Lib2.parseQuery q @?= Left ("All query parsers did not recognize: " ++ q),
+         in Lib2.parseQuery q @?= Left "Could not recognize: addMovie FunkcinisProgramavimas,2024,NeegzistuojantisZanras,PG13,Available",
       testCase "Successfully parsing addMovies" $
         let m1str = "FunkcinisProgramavimas,2024,Horror,PG13,Available"
             m2str = "Rambo,1982,Action,PG,Available"

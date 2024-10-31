@@ -9,8 +9,8 @@ module Lib2
   )
 where
 
+import Control.Applicative (Alternative ((<|>)))
 import Parsers
-import ParsingHelpers
 import PrimitiveParsers
 
 -- | An entity which represets user input.
@@ -36,10 +36,17 @@ instance Show Query where
 -- The function must have tests.
 parseQuery :: String -> Either String Query
 parseQuery s =
-  case orX [parseShow, parseInit, parseAddMovie, parseAddMovies, parseRemoveMovie, parseTakeMovie] s of
-    Left _ -> Left ("All query parsers did not recognize: " ++ s)
-    Right (q, r) ->
-      if null r then Right q else Left ("Unrecognized characters: " ++ r)
+  case parse
+    ( showParser
+        <|> initParser
+        <|> addMovieParser
+        <|> addMoviesParser
+        <|> removeMovieParser
+        <|> takeMovieParser
+    )
+    s of
+    Left e -> Left e
+    Right (q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
 
 -- | An entity which represents your program's state.
 -- Currently it has no constructors but you can introduce
@@ -125,23 +132,32 @@ removeFromList toRm (List m ml)
       Left _ -> Right (Single m)
       Right ml2 -> Right (List m ml2)
 
-parseShow :: Parser Query
-parseShow s =
-  case parseString "show" s of
-    Left e -> Left e
-    Right (_, r) -> Right (Show, r)
+showParser :: Parser Query
+showParser = do
+  _ <- string "show"
+  return Show
 
-parseInit :: Parser Query
-parseInit = and2 (\_ y -> Init y) (parseString "init ") parseRentalStore
+initParser :: Parser Query
+initParser = do
+  _ <- string "init "
+  Init <$> rentalStore
 
-parseAddMovie :: Parser Query
-parseAddMovie = and2 (\_ y -> AddMovie y) (parseString "addMovie ") parseMovie
+addMovieParser :: Parser Query
+addMovieParser = do
+  _ <- string "addMovie "
+  AddMovie <$> movie
 
-parseAddMovies :: Parser Query
-parseAddMovies = and2 (\_ y -> AddMovies y) (parseString "addMovies ") parseMovieList
+addMoviesParser :: Parser Query
+addMoviesParser = do
+  _ <- string "addMovies "
+  AddMovies <$> movieList
 
-parseTakeMovie :: Parser Query
-parseTakeMovie = and2 (\_ y -> TakeMovie y) (parseString "takeMovie ") parseMovie
+takeMovieParser :: Parser Query
+takeMovieParser = do
+  _ <- string "takeMovie "
+  TakeMovie <$> movie
 
-parseRemoveMovie :: Parser Query
-parseRemoveMovie = and2 (\_ y -> RemoveMovie y) (parseString "removeMovie ") parseMovie
+removeMovieParser :: Parser Query
+removeMovieParser = do
+  _ <- string "removeMovie "
+  RemoveMovie <$> movie

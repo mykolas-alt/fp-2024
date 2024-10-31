@@ -37,7 +37,6 @@ library
       Lib2
       Lib3
       Parsers
-      ParsingHelpers
       PrimitiveParsers
   other-modules:
       Paths_fp2024

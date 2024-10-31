@@ -2,18 +2,21 @@
 
 module Parsers where
 
+import Control.Applicative (Alternative (empty, some), (<|>))
+import Control.Monad (replicateM)
 import Data.Char (digitToInt)
 import Data.List (intercalate)
-import ParsingHelpers
 import PrimitiveParsers
 
 -- types
 -- rental_store = "VHS Rental Store" ':' (catalog | customer_database | rental_transactions)
-data RentalStore = VHSRentalStore Catalog
+newtype RentalStore = VHSRentalStore Catalog
   deriving (Eq)
 
-parseRentalStore :: Parser RentalStore
-parseRentalStore = and2 (\_ x -> VHSRentalStore x) (parseString "VHS Rental Store:") parseCatalog
+rentalStore :: Parser RentalStore
+rentalStore = do
+  _ <- string "VHS Rental Store:"
+  VHSRentalStore <$> catalog
 
 instance Show RentalStore where
   show (VHSRentalStore c) = "VHS Rental Store:" ++ show c
@@ -22,8 +25,10 @@ instance Show RentalStore where
 newtype Catalog = Catalog MovieList
   deriving (Eq)
 
-parseCatalog :: Parser Catalog
-parseCatalog = and2 (\_ x -> Catalog x) (parseString "Catalog:") parseMovieList
+catalog :: Parser Catalog
+catalog = do
+  _ <- string "Catalog:"
+  Catalog <$> movieList
 
 instance Show Catalog where
   show (Catalog ml) = "Catalog:" ++ show ml
@@ -32,10 +37,17 @@ instance Show Catalog where
 data Movie = Movie Title Year Genre Rating Availability
   deriving (Eq)
 
-parseMovie :: Parser Movie
-parseMovie = and5 Movie parseTitle (afterSep parseYear) (afterSep parseGenre) (afterSep parseRating) (afterSep parseAvailability)
-  where
-    afterSep = and2 (\_ y -> y) parseSeperator
+movie :: Parser Movie
+movie = do
+  t <- title
+  _ <- seperator
+  y <- year
+  _ <- seperator
+  g <- genre
+  _ <- seperator
+  r <- rating
+  _ <- seperator
+  Movie t y g r <$> availability
 
 instance Show Movie where
   show (Movie t y g r a) = intercalate "," [show t, show y, show g, show r, show a]
@@ -48,67 +60,55 @@ instance Show MovieList where
   show (Single m) = show m
   show (List m ml) = show m ++ "," ++ show ml
 
-parseSingleMovie :: Parser MovieList
-parseSingleMovie s = case parseMovie s of
-  Left e -> Left e
-  Right (m, r) -> Right (Single m, r)
+singleMovie :: Parser MovieList
+singleMovie = Single <$> movie
 
-parseListMovie :: Parser MovieList
-parseListMovie = and3 (\(x, _, y) -> List x y) parseMovie parseSeperator parseMovieList
+listMovie :: Parser MovieList
+listMovie = do
+  m <- movie
+  _ <- seperator
+  List m <$> movieList
 
-parseMovieList :: Parser MovieList
-parseMovieList = or2 parseListMovie parseSingleMovie
+movieList :: Parser MovieList
+movieList = listMovie <|> singleMovie
 
 -- BNF: title = alphanumeric+
 type Title = String
 
-parseTitle :: Parser Title
-parseTitle = many1 parseAlphaNum
+title :: Parser Title
+title = some alphaNum
 
 -- BNF: year = digit digit digit digit
 type Year = Int
 
-parseYear :: Parser Year
-parseYear s =
-  case parseN 4 parseDigit s of
-    Left _ -> Left ("Unable to parse year(YYYY) from: " ++ s)
-    Right (xs, r) -> Right (foldl (\x y -> x * 10 + y) 0 (map digitToInt xs), r)
+year :: Parser Year
+year = do
+  ds <- replicateM 4 digit
+  return $ foldl (\x y -> x * 10 + y) 0 (map digitToInt ds)
 
 -- BNF: availability = "Available" | "Rented"
 data Availability = Available | Rented
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Enum)
 
-parseAvailability :: Parser Availability
-parseAvailability s =
-  case parseData [Available, Rented] s of
-    Left e1 -> Left ("Could not parse Availability: " ++ e1)
-    Right (v1, r1) -> Right (read v1, r1)
+availability :: Parser Availability
+availability = dataParser $ enumFrom $ toEnum 0
 
 -- BNF: rating = "G" | "PG" | "PG-13" | "R" | "NR"
-data Rating = G | PG | PG13 | R | NR
-  deriving (Show, Read, Eq)
+data Rating = G | PG13 | PG | R | NR
+  deriving (Show, Read, Eq, Enum)
 
-parseRating :: Parser Rating
-parseRating s =
-  case parseData [G, PG13, PG, R, NR] s of
-    Left e1 -> Left ("Could not parse Rating: " ++ e1)
-    Right (v1, r1) -> Right (read v1, r1)
+rating :: Parser Rating
+rating = dataParser $ enumFrom $ toEnum 0
 
 -- BNF: genre = "Action" | "Comedy" | "Drama" | "Horror" | "Romance" | "Sci-Fi" | "Documentary" | "Family"
 data Genre = Action | Comedy | Drama | Horror | Romance | SciFi | Documentary | Family
-  deriving (Show, Read, Eq)
+  deriving (Show, Read, Eq, Enum)
 
-parseGenre :: Parser Genre
-parseGenre s =
-  case parseData [Action, Comedy, Drama, Horror, Romance, SciFi, Documentary, Family] s of
-    Left e1 -> Left ("Could not parse Genre: " ++ e1)
-    Right (v1, r1) -> Right (read v1, r1)
+genre :: Parser Genre
+genre = dataParser $ enumFrom (toEnum 0)
 
-parseAlphaNum :: Parser Char
-parseAlphaNum = or2 parseLetter parseDigit
+seperator :: Parser Char
+seperator = char ','
 
-parseSeperator :: Parser Char
-parseSeperator = parseChar ','
-
-parseData :: (Show a) => [a] -> Parser String
-parseData = orX . map (parseString . show)
+dataParser :: (Read a, Show a) => [a] -> Parser a
+dataParser = foldr (\a -> (<|>) (fmap read (string $ show a))) empty
