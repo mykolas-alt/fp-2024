@@ -50,7 +50,7 @@ movie = do
   Movie t y g r <$> availability
 
 instance Show Movie where
-  show (Movie t y g r a) = intercalate "," [show t, show y, show g, show r, show a]
+  show (Movie t y g r a) = intercalate "," [t, show y, show g, show r, show a]
 
 -- movie_list = movie | (movie ',' movie_list)
 data MovieList = Single Movie | List Movie MovieList
@@ -91,14 +91,14 @@ data Availability = Available | Rented
   deriving (Show, Read, Eq, Enum)
 
 availability :: Parser Availability
-availability = dataParser $ enumFrom $ toEnum 0
+availability = dataParser $ enumFrom (toEnum 0)
 
 -- BNF: rating = "G" | "PG" | "PG-13" | "R" | "NR"
 data Rating = G | PG13 | PG | R | NR
   deriving (Show, Read, Eq, Enum)
 
 rating :: Parser Rating
-rating = dataParser $ enumFrom $ toEnum 0
+rating = dataParser $ enumFrom (toEnum 0)
 
 -- BNF: genre = "Action" | "Comedy" | "Drama" | "Horror" | "Romance" | "Sci-Fi" | "Documentary" | "Family"
 data Genre = Action | Comedy | Drama | Horror | Romance | SciFi | Documentary | Family

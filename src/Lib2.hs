@@ -3,6 +3,7 @@
 module Lib2
   ( Query (..),
     parseQuery,
+    query,
     State (..),
     emptyState,
     stateTransition,
@@ -18,7 +19,7 @@ import PrimitiveParsers
 -- Currently it has no constructors but you can introduce
 -- as many as needed.
 -- BNF: root = "init " rental_store | "addMovies" movie_list | "addMovie " movie | "takeMovie " movie | "removeMovie " movie | "show"
-data Query = Init RentalStore | AddMovies MovieList | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show
+data Query = Init RentalStore | AddMovies MovieList | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show | Uninit
 
 -- | The instances are needed basically for tests
 instance Eq Query where
@@ -27,6 +28,7 @@ instance Eq Query where
 instance Show Query where
   show (Init rs) = "init " ++ show rs
   show Show = "show"
+  show Uninit = "uninit"
   show (TakeMovie m) = "takeMovie " ++ show m
   show (RemoveMovie m) = "removeMovie " ++ show m
   show (AddMovie m) = "addMovie " ++ show m
@@ -36,15 +38,7 @@ instance Show Query where
 -- The function must have tests.
 parseQuery :: String -> Either String Query
 parseQuery s =
-  case parse
-    ( showParser
-        <|> initParser
-        <|> addMovieParser
-        <|> addMoviesParser
-        <|> removeMovieParser
-        <|> takeMovieParser
-    )
-    s of
+  case parse query s of
     Left e -> Left e
     Right (q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
 
@@ -74,6 +68,7 @@ emptyState = Uninitialized
 -- an updated program's state.
 stateTransition :: State -> Query -> Either String (Maybe String, State)
 stateTransition s Show = Right (Just (show s), s)
+stateTransition _ Uninit = Right (Just "Uninitializing state", Uninitialized)
 stateTransition Uninitialized (Init rs) = Right (Just "Successfully initialized", Store rs)
 stateTransition _ (Init _) = Left "State is already initialized"
 stateTransition s (AddMovie m) = addMovie s m
@@ -132,6 +127,11 @@ removeFromList toRm (List m ml)
       Left _ -> Right (Single m)
       Right ml2 -> Right (List m ml2)
 
+uninitParser :: Parser Query
+uninitParser = do
+  _ <- string "uninit"
+  return Uninit
+
 showParser :: Parser Query
 showParser = do
   _ <- string "show"
@@ -161,3 +161,13 @@ removeMovieParser :: Parser Query
 removeMovieParser = do
   _ <- string "removeMovie "
   RemoveMovie <$> movie
+
+query :: Parser Query
+query =
+  showParser
+    <|> initParser
+    <|> uninitParser
+    <|> addMovieParser
+    <|> addMoviesParser
+    <|> removeMovieParser
+    <|> takeMovieParser

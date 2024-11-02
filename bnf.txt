@@ -18,7 +18,7 @@ string = char | char string
 
 title = alphanumeric+
 
-root = "init " rental_store | "addMovies " movie_list | "addMovie " movie | "takeMovie " movie | "removeMovie " movie | "show"
+root = "init " rental_store | "addMovies " movie_list | "addMovie " movie | "takeMovie " movie | "removeMovie " movie | "show" | "uninit"
 rental_store = "VHS Rental Store" ':' (catalog | customer_database | rental_transactions)
 
 catalog = "Catalog" ':' movie_list
