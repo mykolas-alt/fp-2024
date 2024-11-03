@@ -120,8 +120,7 @@ stateTransition s LoadCommand ioChan = do
     then return (Left "No state file found")
     else case parseStatements $ fromJust qs of
       Left e -> do
-        putStrLn e
-        return $ Left "Failed to load from file"
+        return $ Left $ "Failed to load from file:\n" ++ e
       Right (qs', _) -> stateTransition s (StatementCommand qs') ioChan
 stateTransition s (StatementCommand sts) _ = atomically $ atomicStatemets s sts
 
