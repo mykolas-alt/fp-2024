@@ -3,14 +3,15 @@
 module Lib2
   ( Query (..),
     parseQuery,
+    query,
     State (..),
     emptyState,
     stateTransition,
   )
 where
 
+import Control.Applicative (Alternative ((<|>)))
 import Parsers
-import ParsingHelpers
 import PrimitiveParsers
 
 -- | An entity which represets user input.
@@ -18,7 +19,7 @@ import PrimitiveParsers
 -- Currently it has no constructors but you can introduce
 -- as many as needed.
 -- BNF: root = "init " rental_store | "addMovies" movie_list | "addMovie " movie | "takeMovie " movie | "removeMovie " movie | "show"
-data Query = Init RentalStore | AddMovies MovieList | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show
+data Query = Init RentalStore | AddMovies MovieList | TakeMovie Movie | RemoveMovie Movie | AddMovie Movie | Show | Uninit
 
 -- | The instances are needed basically for tests
 instance Eq Query where
@@ -27,6 +28,7 @@ instance Eq Query where
 instance Show Query where
   show (Init rs) = "init " ++ show rs
   show Show = "show"
+  show Uninit = "uninit"
   show (TakeMovie m) = "takeMovie " ++ show m
   show (RemoveMovie m) = "removeMovie " ++ show m
   show (AddMovie m) = "addMovie " ++ show m
@@ -36,10 +38,9 @@ instance Show Query where
 -- The function must have tests.
 parseQuery :: String -> Either String Query
 parseQuery s =
-  case orX [parseShow, parseInit, parseAddMovie, parseAddMovies, parseRemoveMovie, parseTakeMovie] s of
-    Left _ -> Left ("All query parsers did not recognize: " ++ s)
-    Right (q, r) ->
-      if null r then Right q else Left ("Unrecognized characters: " ++ r)
+  case parse query s of
+    Left e -> Left e
+    Right (q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
 
 -- | An entity which represents your program's state.
 -- Currently it has no constructors but you can introduce
@@ -67,6 +68,7 @@ emptyState = Uninitialized
 -- an updated program's state.
 stateTransition :: State -> Query -> Either String (Maybe String, State)
 stateTransition s Show = Right (Just (show s), s)
+stateTransition _ Uninit = Right (Just "Uninitializing state", Uninitialized)
 stateTransition Uninitialized (Init rs) = Right (Just "Successfully initialized", Store rs)
 stateTransition _ (Init _) = Left "State is already initialized"
 stateTransition s (AddMovie m) = addMovie s m
@@ -125,23 +127,47 @@ removeFromList toRm (List m ml)
       Left _ -> Right (Single m)
       Right ml2 -> Right (List m ml2)
 
-parseShow :: Parser Query
-parseShow s =
-  case parseString "show" s of
-    Left e -> Left e
-    Right (_, r) -> Right (Show, r)
+uninitParser :: Parser Query
+uninitParser = do
+  _ <- string "uninit"
+  return Uninit
 
-parseInit :: Parser Query
-parseInit = and2 (\_ y -> Init y) (parseString "init ") parseRentalStore
+showParser :: Parser Query
+showParser = do
+  _ <- string "show"
+  return Show
 
-parseAddMovie :: Parser Query
-parseAddMovie = and2 (\_ y -> AddMovie y) (parseString "addMovie ") parseMovie
+initParser :: Parser Query
+initParser = do
+  _ <- string "init "
+  Init <$> rentalStore
 
-parseAddMovies :: Parser Query
-parseAddMovies = and2 (\_ y -> AddMovies y) (parseString "addMovies ") parseMovieList
+addMovieParser :: Parser Query
+addMovieParser = do
+  _ <- string "addMovie "
+  AddMovie <$> movie
 
-parseTakeMovie :: Parser Query
-parseTakeMovie = and2 (\_ y -> TakeMovie y) (parseString "takeMovie ") parseMovie
+addMoviesParser :: Parser Query
+addMoviesParser = do
+  _ <- string "addMovies "
+  AddMovies <$> movieList
 
-parseRemoveMovie :: Parser Query
-parseRemoveMovie = and2 (\_ y -> RemoveMovie y) (parseString "removeMovie ") parseMovie
+takeMovieParser :: Parser Query
+takeMovieParser = do
+  _ <- string "takeMovie "
+  TakeMovie <$> movie
+
+removeMovieParser :: Parser Query
+removeMovieParser = do
+  _ <- string "removeMovie "
+  RemoveMovie <$> movie
+
+query :: Parser Query
+query =
+  showParser
+    <|> initParser
+    <|> uninitParser
+    <|> addMovieParser
+    <|> addMoviesParser
+    <|> removeMovieParser
+    <|> takeMovieParser
