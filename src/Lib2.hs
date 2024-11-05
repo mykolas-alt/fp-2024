@@ -32,7 +32,7 @@ instance Show Query where
   show (TakeMovie m) = "takeMovie " ++ show m
   show (RemoveMovie m) = "removeMovie " ++ show m
   show (AddMovie m) = "addMovie " ++ show m
-  show (AddMovies ml) = "addMovie " ++ show ml
+  show (AddMovies ml) = "addMovies " ++ show ml
 
 -- | Parses user's input.
 -- The function must have tests.
