@@ -12,11 +12,10 @@ module Lib3
   )
 where
 
-import Control.Applicative (some, (<|>))
+import Control.Applicative (Alternative (many), (<|>))
 import Control.Concurrent (Chan, newChan, readChan, writeChan)
 import Control.Concurrent.STM (STM, TVar, atomically, readTVar, readTVarIO, writeTVar)
 import Control.Monad (forever)
-import Data.List (intercalate)
 import Data.Maybe (fromJust, isNothing)
 import qualified Lib2
 import qualified Parsers as P
@@ -57,7 +56,7 @@ data Statements
 instance Show Statements where
   show :: Statements -> String
   show (Single q) = show q
-  show (Batch qs) = intercalate ";\n" (map show qs) ++ "\n"
+  show (Batch qs) = "BEGIN\n" ++ concatMap ((++ ";\n") . show) qs ++ "END\n"
 
 data Command
   = StatementCommand Statements
@@ -154,15 +153,16 @@ atomicStatemets s (Single q) = do
 statements :: Parser Statements
 statements =
   ( do
-      q <- Lib2.query
+      _ <- string "BEGIN\n"
       qs <-
-        some
+        many
           ( do
+              q <- Lib2.query
               _ <- string ";\n"
-              Lib2.query
+              return q
           )
-      _ <- char '\n'
-      return $ Batch (q : qs)
+      _ <- string "END\n"
+      return $ Batch qs
   )
     <|> (Single <$> Lib2.query)
 

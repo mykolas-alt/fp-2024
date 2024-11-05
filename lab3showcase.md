@@ -1,5 +1,7 @@
 # Batch statement syntax
 
+BEGIN
+
 q<sub>1</sub>;
 
 q<sub>2</sub>;
@@ -8,9 +10,11 @@ q<sub>3</sub>;
 
 ...
 
-q<sub>n</sub>
+q<sub>n</sub>;
 
-where q<sub>i</sub> = some Lib2 query. i = 1, 2, ..., n
+END
+
+where q<sub>i</sub> = some Lib2 query, i = 1, 2, ..., n.
 
 # Marshalling notes
 
@@ -33,9 +37,11 @@ Uninitialized
 Successfully initialized
 >>> :paste
 -- Entering multi-line mode. Press <Ctrl-D> to finish.
+| BEGIN
 | addMovies Filmas,1989,Comedy,R,Available,KitasFilmas,1926,Family,G,Available;                                                 
 | takeMovie Pavadinimas,1999,Action,PG,Available;                   
-| show
+| show;
+| END
 |
 Success
 Successfully updated
@@ -44,8 +50,10 @@ Store VHS Rental Store:Catalog:KitasFilmas,1926,Family,G,Available,Filmas,1989,C
 State saved successfully
 >>> :paste
 -- Entering multi-line mode. Press <Ctrl-D> to finish.
+| BEGIN
 | uninit;
-| show
+| show;
+| END
 |
 Uninitializing state
 Uninitialized
@@ -63,6 +71,9 @@ State is saved to a file called `state.txt`
 `state.txt` content after saving:
 
 ```
+BEGIN
 uninit;
-init VHS Rental Store:Catalog:KitasFilmas,1926,Family,G,Available,Filmas,1989,Comedy,R,Available,Pavadinimas,1999,Action,PG,Rented
+init VHS Rental Store:Catalog:KitasFilmas,1926,Family,G,Available,Filmas,1989,Comedy,R,Available,Pavadinimas,1999,Action,PG,Rented;
+END
+
 ```
