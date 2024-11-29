@@ -13,72 +13,59 @@ module PrimitiveParsers
     string,
     space,
     Parser (..),
+    atomic,
+    parse,
     alphaNum,
   )
 where
 
-import Control.Applicative (Alternative (empty), (<|>))
+import Control.Monad.Trans.Class (MonadTrans (..))
+import Control.Monad.Trans.Except (ExceptT, catchE, runExceptT, throwE)
+import Control.Monad.Trans.State (State, get, put, runState)
 import qualified Data.Char as C
 
-newtype Parser a where
-  P :: {parse :: String -> Either String (a, String)} -> Parser a
+type Parser a = ExceptT String (State String) a
 
-instance Functor Parser where
-  fmap :: (a -> b) -> Parser a -> Parser b
-  fmap f p = do
-    a <- p
-    return $ f a
+parse :: Parser a -> String -> (Either String a, String)
+parse parser = runState (runExceptT parser)
 
-instance Applicative Parser where
-  pure :: a -> Parser a
-  pure x = P $ \str -> Right (x, str)
-  (<*>) :: Parser (a -> b) -> Parser a -> Parser b
-  pf <*> pa = do
-    f <- pf
-    f <$> pa
-
-instance Alternative Parser where
-  empty :: Parser a
-  empty = P $ \_ -> Left "Failed to parse"
-  (<|>) :: Parser a -> Parser a -> Parser a
-  (<|>) p1 p2 = P $ \str -> case parse p1 str of
-    Right (v, r) -> Right (v, r)
-    Left _ -> parse p2 str
-
-instance Monad Parser where
-  (>>=) :: Parser a -> (a -> Parser b) -> Parser b
-  (>>=) pa f = P $ \str -> case parse pa str of
-    Left e -> Left e
-    Right (a, r) -> parse (f a) r
+atomic :: Parser a -> Parser a
+atomic p = do
+  input <- lift get
+  catchE p (\err -> lift (put input) >> throwE err)
 
 single :: Parser Char
-single = P $ \str -> case str of
-  [] -> Left "Empty String"
-  (x : xs) -> Right (x, xs)
+single = do
+  input <- lift get
+  case input of
+    [] -> throwE "Parser received empty input."
+    (x : xs) -> lift $ put xs >> return x
 
 sat :: (Char -> Bool) -> Parser Char
-sat p = P $ \case
-  [] -> Left "Empty String"
-  s@(x : xs) -> if p x then Right (x, xs) else Left $ "Could not recognize: " ++ s
+sat p = do
+  input <- lift get
+  case input of
+    [] -> throwE "Parser received empty input."
+    (x : xs) ->
+      if p x
+        then lift $ put xs >> return x
+        else
+          throwE $ "Parser error at: \"" ++ input ++ "\""
 
 char :: Char -> Parser Char
-char c = sat (== c)
+char c = catchE (sat (== c)) (\err -> throwE $ ('\'' : c : '\'' : " could not be parsed. ") ++ err)
 
 letter :: Parser Char
-letter = sat C.isLetter
+letter = catchE (sat C.isLetter) (\err -> throwE $ "Could not parse letter. " ++ err)
 
 space :: Parser Char
 space = char ' '
 
 digit :: Parser Char
-digit = sat C.isDigit
+digit = catchE (sat C.isDigit) (\err -> throwE $ "A digit could not be parsed. " ++ err)
 
 string :: String -> Parser String
-string [] = return []
-string (c : cs) = do
-  c' <- char c
-  cs' <- string cs
-  return (c' : cs')
+string str = atomic $ mapM char str
 
 alphaNum :: Parser Char
-alphaNum = sat C.isAlphaNum
+alphaNum = catchE (sat C.isAlphaNum) (\err -> throwE $ "An alphanumeric character could not be parsed. " ++ err)

@@ -39,8 +39,8 @@ instance Show Query where
 parseQuery :: String -> Either String Query
 parseQuery s =
   case parse query s of
-    Left e -> Left e
-    Right (q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
+    (Left _, _) -> Left $ "Could not recognize: " ++ s
+    (Right q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
 
 -- | An entity which represents your program's state.
 -- Currently it has no constructors but you can introduce
@@ -138,36 +138,37 @@ showParser = do
   return Show
 
 initParser :: Parser Query
-initParser = do
+initParser = atomic $ do
   _ <- string "init "
   Init <$> rentalStore
 
 addMovieParser :: Parser Query
-addMovieParser = do
+addMovieParser = atomic $ do
   _ <- string "addMovie "
   AddMovie <$> movie
 
 addMoviesParser :: Parser Query
-addMoviesParser = do
+addMoviesParser = atomic $ do
   _ <- string "addMovies "
   AddMovies <$> movieList
 
 takeMovieParser :: Parser Query
-takeMovieParser = do
+takeMovieParser = atomic $ do
   _ <- string "takeMovie "
   TakeMovie <$> movie
 
 removeMovieParser :: Parser Query
-removeMovieParser = do
+removeMovieParser = atomic $ do
   _ <- string "removeMovie "
   RemoveMovie <$> movie
 
 query :: Parser Query
 query =
-  showParser
-    <|> initParser
-    <|> uninitParser
-    <|> addMovieParser
-    <|> addMoviesParser
-    <|> removeMovieParser
-    <|> takeMovieParser
+  atomic $
+    showParser
+      <|> initParser
+      <|> uninitParser
+      <|> addMovieParser
+      <|> addMoviesParser
+      <|> removeMovieParser
+      <|> takeMovieParser
