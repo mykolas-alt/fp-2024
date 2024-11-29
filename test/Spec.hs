@@ -1,6 +1,7 @@
 {-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE InstanceSigs #-}
-
+import Data.List
+import Data.Ord
 import Data.Either (Either (Right))
 import Lib1 qualified
 import Lib2 qualified
