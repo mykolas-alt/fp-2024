@@ -39,8 +39,8 @@ instance Show Query where
 parseQuery :: String -> Either String Query
 parseQuery s =
   case parse query s of
-    Left e -> Left e
-    Right (q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
+    (Left _, _) -> Left $ "Could not recognize: " ++ s
+    (Right q, r) -> if null r then Right q else Left ("Unrecognized characters:" ++ r)
 
 -- | An entity which represents your program's state.
 -- Currently it has no constructors but you can introduce
@@ -78,6 +78,7 @@ stateTransition s (TakeMovie m) = takeMovie s m
 
 takeMovie :: State -> Movie -> Either String (Maybe String, State)
 takeMovie Uninitialized _ = Left "State has to be initialized to take a movie"
+takeMovie (Store _) (Movie _ _ _ _ Rented) = Left "Tried to take an already rented movie"
 takeMovie (Store (VHSRentalStore (Catalog ml))) m =
   case takeFromList m ml of
     Left err -> Left err
@@ -138,36 +139,37 @@ showParser = do
   return Show
 
 initParser :: Parser Query
-initParser = do
+initParser = atomic $ do
   _ <- string "init "
   Init <$> rentalStore
 
 addMovieParser :: Parser Query
-addMovieParser = do
+addMovieParser = atomic $ do
   _ <- string "addMovie "
   AddMovie <$> movie
 
 addMoviesParser :: Parser Query
-addMoviesParser = do
+addMoviesParser = atomic $ do
   _ <- string "addMovies "
   AddMovies <$> movieList
 
 takeMovieParser :: Parser Query
-takeMovieParser = do
+takeMovieParser = atomic $ do
   _ <- string "takeMovie "
   TakeMovie <$> movie
 
 removeMovieParser :: Parser Query
-removeMovieParser = do
+removeMovieParser = atomic $ do
   _ <- string "removeMovie "
   RemoveMovie <$> movie
 
 query :: Parser Query
 query =
-  showParser
-    <|> initParser
-    <|> uninitParser
-    <|> addMovieParser
-    <|> addMoviesParser
-    <|> removeMovieParser
-    <|> takeMovieParser
+  atomic $
+    showParser
+      <|> initParser
+      <|> uninitParser
+      <|> addMovieParser
+      <|> addMoviesParser
+      <|> removeMovieParser
+      <|> takeMovieParser

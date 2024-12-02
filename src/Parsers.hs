@@ -14,7 +14,7 @@ newtype RentalStore = VHSRentalStore Catalog
   deriving (Eq)
 
 rentalStore :: Parser RentalStore
-rentalStore = do
+rentalStore = atomic $ do
   _ <- string "VHS Rental Store:"
   VHSRentalStore <$> catalog
 
@@ -26,7 +26,7 @@ newtype Catalog = Catalog MovieList
   deriving (Eq)
 
 catalog :: Parser Catalog
-catalog = do
+catalog = atomic $ do
   _ <- string "Catalog:"
   Catalog <$> movieList
 
@@ -38,7 +38,7 @@ data Movie = Movie Title Year Genre Rating Availability
   deriving (Eq)
 
 movie :: Parser Movie
-movie = do
+movie = atomic $ do
   t <- title
   _ <- seperator
   y <- year
@@ -64,25 +64,25 @@ singleMovie :: Parser MovieList
 singleMovie = Single <$> movie
 
 listMovie :: Parser MovieList
-listMovie = do
+listMovie = atomic $ do
   m <- movie
   _ <- seperator
   List m <$> movieList
 
 movieList :: Parser MovieList
-movieList = listMovie <|> singleMovie
+movieList = atomic $ listMovie <|> singleMovie
 
 -- BNF: title = alphanumeric+
 type Title = String
 
 title :: Parser Title
-title = some alphaNum
+title = atomic $ some alphaNum
 
 -- BNF: year = digit digit digit digit
 type Year = Int
 
 year :: Parser Year
-year = do
+year = atomic $ do
   ds <- replicateM 4 digit
   return $ foldl (\x y -> x * 10 + y) 0 (map digitToInt ds)
 

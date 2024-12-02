@@ -91,6 +91,7 @@ executables:
     dependencies:
     - fp2024
     - repline
+    - free
     - lens
     - wreq
     - bytestring
@@ -105,7 +106,9 @@ executables:
     dependencies:
     - fp2024
     - repline
+    - stm
     - scotty
+    - mtl
     - string-conversions
 
 tests:

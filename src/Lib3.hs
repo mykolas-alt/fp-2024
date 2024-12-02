@@ -9,6 +9,7 @@ module Lib3
     marshallState,
     renderStatements,
     Statements (..),
+    Command (..),
   )
 where
 
@@ -66,14 +67,18 @@ data Command
 
 -- | Parses user's input.
 parseCommand :: String -> Either String (Command, String)
-parseCommand = parse command
+parseCommand str = case parse command str of
+  (Left err, _) -> Left err
+  (Right cmd, r) -> Right (cmd, r)
 
 -- | Parses Statement.
 -- Must be used in parseCommand.
 -- Reuse Lib2 as much as you can.
 -- You can change Lib2.parseQuery signature if needed.
 parseStatements :: String -> Either String (Statements, String)
-parseStatements = parse statements
+parseStatements str = case parse statements str of
+  (Left err, _) -> Left err
+  (Right s, r) -> Right (s, r)
 
 -- | Converts program's state into Statements
 -- (probably a batch, but might be a single query)
