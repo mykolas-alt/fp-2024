@@ -2,10 +2,13 @@
 
 module Main (main) where
 
+import Control.Concurrent (Chan, forkIO, killThread, newChan)
 import Control.Lens
 import Control.Monad.Free (Free (..), liftF)
 import Data.ByteString
+import Data.Maybe (fromMaybe)
 import Data.String.Conversions
+import GHC.Conc (TVar, newTVar, newTVarIO, readTVar, readTVarIO)
 import qualified Lib2
 import qualified Lib3
 import Network.Wreq
@@ -24,13 +27,6 @@ data MyDomainAlgebra a
   | Save a
   | Load a
   deriving (Functor)
-
--- data MyDomainAlgebra next
---   = Load (() -> next)
---   | Add Int (() -> next)
---   | Dump (String -> next)
---   | Save (() -> next)
---   deriving (Functor)
 
 type VHSRentalProgram = Free MyDomainAlgebra
 
@@ -58,11 +54,11 @@ save = liftF $ Save ()
 load :: VHSRentalProgram ()
 load = liftF $ Load ()
 
-interpretorius :: VHSRentalProgram a -> IO a
-interpretorius (Pure a) = return a
-interpretorius (Free step) = do
+interpretorSingleRequest :: VHSRentalProgram a -> IO a
+interpretorSingleRequest (Pure a) = return a
+interpretorSingleRequest (Free step) = do
   next <- runStep step
-  interpretorius next
+  interpretorSingleRequest next
   where
     runStep :: MyDomainAlgebra a -> IO a
     runStep (Init store next) = sendSingleStatement (Lib2.Init store) >> return next
@@ -77,25 +73,25 @@ interpretorius (Free step) = do
     runStep (Save next) = postAsString "save" >> return next
     runStep (Load next) = postAsString "load" >> return next
 
-interpretWithBatching :: VHSRentalProgram a -> [Lib2.Query] -> IO a
-interpretWithBatching (Pure a) batch = dumpBatch batch >> return a
-interpretWithBatching (Free step) batch = do
+interpretWithBatching' :: VHSRentalProgram a -> [Lib2.Query] -> IO a
+interpretWithBatching' (Pure a) batch = dumpBatch batch >> return a
+interpretWithBatching' (Free step) batch = do
   case step of
-    Init store next -> interpretWithBatching next $ batch ++ [Lib2.Init store]
-    AddMovies ml next -> interpretWithBatching next $ batch ++ [Lib2.AddMovies ml]
-    TakeMovie m next -> interpretWithBatching next $ batch ++ [Lib2.TakeMovie m]
-    RemoveMovie m next -> interpretWithBatching next $ batch ++ [Lib2.RemoveMovie m]
-    AddMovie m next -> interpretWithBatching next $ batch ++ [Lib2.AddMovie m]
-    Uninit next -> interpretWithBatching next $ batch ++ [Lib2.Uninit]
+    Init store next -> interpretWithBatching' next $ batch ++ [Lib2.Init store]
+    AddMovies ml next -> interpretWithBatching' next $ batch ++ [Lib2.AddMovies ml]
+    TakeMovie m next -> interpretWithBatching' next $ batch ++ [Lib2.TakeMovie m]
+    RemoveMovie m next -> interpretWithBatching' next $ batch ++ [Lib2.RemoveMovie m]
+    AddMovie m next -> interpretWithBatching' next $ batch ++ [Lib2.AddMovie m]
+    Uninit next -> interpretWithBatching' next $ batch ++ [Lib2.Uninit]
     Show next -> do
       _ <- dumpBatch batch
       str <- sendSingleStatement Lib2.Show
-      interpretWithBatching (next str) []
-    Save next -> dumpBatch batch >> postAsString "save" >> interpretWithBatching next []
-    Load next -> dumpBatch batch >> postAsString "load" >> interpretWithBatching next []
+      interpretWithBatching' (next str) []
+    Save next -> dumpBatch batch >> postAsString "save" >> interpretWithBatching' next []
+    Load next -> dumpBatch batch >> postAsString "load" >> interpretWithBatching' next []
 
-interpretorius' :: VHSRentalProgram a -> IO a
-interpretorius' prog = interpretWithBatching prog []
+interpretWithBatching :: VHSRentalProgram a -> IO a
+interpretWithBatching prog = interpretWithBatching' prog []
 
 dumpBatch :: [Lib2.Query] -> IO (Maybe String)
 dumpBatch [] = return Nothing
@@ -115,10 +111,59 @@ postAsString s = do
   resp <- post "http://localhost:3000" rawRequest
   return $ cs $ resp ^. responseBody
 
+testInterpretator :: VHSRentalProgram a -> IO a
+testInterpretator p = do
+  state <- newTVarIO Lib2.emptyState
+  chan <- newChan :: IO (Chan Lib3.StorageOp)
+  initialState <- readTVarIO state
+  putStrLn $ "Initial state:\n" ++ show initialState ++ "\n"
+  _ <- forkIO $ Lib3.storageOpLoop chan
+  testInterpretator' state chan p
+  where
+    testInterpretator' :: TVar Lib2.State -> Chan Lib3.StorageOp -> VHSRentalProgram a -> IO a
+    testInterpretator' _ _ (Pure a) = return a
+    testInterpretator' state chan (Free step) = do
+      next <- runStep state chan step
+      putStrLn "State after:"
+      newState <- readTVarIO state
+      putStrLn $ show newState ++ "\n"
+      testInterpretator' state chan next
+    runStep :: TVar Lib2.State -> Chan Lib3.StorageOp -> MyDomainAlgebra a -> IO a
+    runStep state chan (Init store next) = transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single $ Lib2.Init store) chan >> return next
+    runStep state chan (AddMovies ml next) = transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single $ Lib2.AddMovies ml) chan >> return next
+    runStep state chan (TakeMovie m next) = transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single $ Lib2.TakeMovie m) chan >> return next
+    runStep state chan (RemoveMovie m next) = transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single $ Lib2.RemoveMovie m) chan >> return next
+    runStep state chan (AddMovie m next) = transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single $ Lib2.AddMovie m) chan >> return next
+    runStep state chan (Show next) = do
+      str <- transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single Lib2.Show) chan
+      return $ next str
+    runStep state chan (Uninit next) = transitionAndPrint state (Lib3.StatementCommand $ Lib3.Single Lib2.Uninit) chan >> return next
+    runStep state chan (Save next) = transitionAndPrint state Lib3.SaveCommand chan >> return next
+    runStep state chan (Load next) = transitionAndPrint state Lib3.LoadCommand chan >> return next
+
+transitionAndPrint :: TVar Lib2.State -> Lib3.Command -> Chan Lib3.StorageOp -> IO String
+transitionAndPrint state cmd chan = do
+  putStrLn $ "Command:\n" ++ show cmd
+  res <- Lib3.stateTransition state cmd chan
+  let str = either id (fromMaybe "Success") res
+  putStrLn "Result:"
+  putStrLn str
+  return str
+
+process :: TVar Lib2.State -> Chan Lib3.StorageOp -> String -> IO String
+process state storageChan input = case Lib3.parseCommand input of
+  Left e -> return e
+  Right (cmd, "") -> do
+    info <- Lib3.stateTransition state cmd storageChan
+    case info of
+      Left e -> return e
+      Right mb -> return $ fromMaybe "Success" mb
+  Right (_, str) -> return $ "Could not parse: " ++ str
+
 --------------------------------------------------------
 
-programele :: VHSRentalProgram (String, String)
-programele = do
+program :: VHSRentalProgram (String, String)
+program = do
   initializeRentalStore $ VHSRentalStore $ Catalog $ Single movie1
   save
   addMovieToStore $ Movie "KitasPavadinimas" 1950 Horror R Available
@@ -137,6 +182,7 @@ programele = do
 
 main :: IO ()
 main = do
-  -- str <- interpretorius programele
-  str <- interpretorius' programele
+  str <- interpretorSingleRequest program
+  -- str <- interpretWithBatching program
+  -- str <- testInterpretator program
   print str

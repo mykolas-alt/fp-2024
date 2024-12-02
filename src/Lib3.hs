@@ -9,6 +9,7 @@ module Lib3
     marshallState,
     renderStatements,
     Statements (..),
+    Command (..),
   )
 where
 

@@ -78,6 +78,7 @@ stateTransition s (TakeMovie m) = takeMovie s m
 
 takeMovie :: State -> Movie -> Either String (Maybe String, State)
 takeMovie Uninitialized _ = Left "State has to be initialized to take a movie"
+takeMovie (Store _) (Movie _ _ _ _ Rented) = Left "Tried to take an already rented movie"
 takeMovie (Store (VHSRentalStore (Catalog ml))) m =
   case takeFromList m ml of
     Left err -> Left err
